@@ -5,6 +5,30 @@ import torch
 from common.sublayer import PositionwiseFeedForward, MultiHeadedAttention
 
 
+class GraphConvolution(nn.Module):
+    """
+    Simple GCN layer, similar to https://arxiv.org/abs/1609.02907
+    """
+    def __init__(self, in_features, out_features, bias=True):
+        super(GraphConvolution, self).__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.weight = nn.Parameter(torch.FloatTensor(in_features, out_features))
+        if bias:
+            self.bias = nn.Parameter(torch.FloatTensor(out_features))
+        else:
+            self.register_parameter('bias', None)
+
+    def forward(self, text, adj):
+        hidden = torch.matmul(text, self.weight)
+        denom = torch.sum(adj, dim=2, keepdim=True) + 1
+        output = torch.matmul(adj, hidden) / denom
+        if self.bias is not None:
+            return output + self.bias
+        else:
+            return output
+
+
 class RGATLayer(nn.Module):
     def __init__(
         self, d_model, heads, d_ff, dropout, att_drop=0.1, use_structure=True, dep_dim=30, alpha=1.0, beta=1.0
@@ -34,7 +58,7 @@ class RGATLayer(nn.Module):
     """
 
         input_norm = self.layer_norm(inputs)
-        context, _ = self.self_attn(
+        context, top_attn = self.self_attn(
             input_norm,
             input_norm,
             input_norm,
@@ -43,7 +67,7 @@ class RGATLayer(nn.Module):
             structure=structure,
         )
         out = self.dropout(context) + inputs
-        return self.feed_forward(out)
+        return self.feed_forward(out), top_attn
 
 
 class RGATEncoder(nn.Module):
@@ -88,7 +112,7 @@ class RGATEncoder(nn.Module):
             (n_batch_,) = lengths.size()
             # aeq(n_batch, n_batch_)
 
-    def forward(self, src, src_key_padding_mask=None, mask=None, structure=None):
+    def forward(self, src, adj=None, src_key_padding_mask=None, mask=None, structure=None):
         """ See :obj:`EncoderBase.forward()`"""
         """
     Args:
@@ -104,12 +128,14 @@ class RGATEncoder(nn.Module):
         # self._check_args(src, lengths)
 
         out = src  # [B, seq_len, H]
+        all_attention = []
 
         # Run the forward pass of every layer of the tranformer.
         for i in range(self.num_layers):
-            out = self.transformer[i](out, mask, src_key_padding_mask, structure=structure)
+            out, top_attn = self.transformer[i](out, mask, src_key_padding_mask, structure=structure)
+            all_attention.append(top_attn)
         out = self.layer_norm(out)  # [B, seq, H]
-        return out
+        return out, all_attention
 
 
 def sequence_mask(lengths, max_len=None):

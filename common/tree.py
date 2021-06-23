@@ -22,6 +22,7 @@ def head_to_adj(sent_len, head, tokens, label, len_, mask, directed=False, self_
     # print('mask', mask, len(mask))
     asp_idx = [idx for idx in range(len(mask)) if mask[idx] == 1]
     for idx, head in enumerate(head):
+        ## aspect to aspect
         if idx in asp_idx:
             for k in asp_idx:
                 adj_matrix[idx][k] = 1

@@ -43,13 +43,13 @@ class ABSATrainer(object):
         batch = [b.cuda() for b in batch]
 
         # unpack inputs and label
-        inputs = batch[0:8]
+        inputs = batch[0:-1]
         label = batch[-1]
 
         # step forward
         self.model.train()
         self.optimizer.zero_grad()
-        logits, _ = self.model(inputs)
+        logits, _, _ = self.model(inputs)
         loss = F.cross_entropy(logits, label, reduction='mean')
         corrects = (torch.max(logits, 1)[1].view(label.size()).data == label.data).sum()
         acc = 100.0 * np.float(corrects) / label.size()[0]
@@ -64,19 +64,30 @@ class ABSATrainer(object):
         batch = [b.cuda() for b in batch]
 
         # unpack inputs and label
-        inputs = batch[0:8]
+        inputs = batch[0:-1]
         label = batch[-1]
 
         # forward
         self.model.eval()
-        logits, g_outputs = self.model(inputs)
+        logits, g_outputs, _ = self.model(inputs)
         loss = F.cross_entropy(logits, label, reduction='mean')
+        loss_by_class = F.cross_entropy(logits, label, reduction='none')
+
+        ## Masks by Class
+        neg_mask = label == 0
+        neu_mask = label == 1
+        pos_mask = label == 2
+
+        neg_loss = torch.sum(neg_mask.float()*loss_by_class).item()
+        neu_loss = torch.sum(neu_mask.float()*loss_by_class).item()
+        pos_loss = torch.sum(pos_mask.float()*loss_by_class).item()
+
         corrects = (torch.max(logits, 1)[1].view(label.size()).data == label.data).sum()
         acc = 100.0 * np.float(corrects) / label.size()[0]
         predictions = np.argmax(logits.data.cpu().numpy(), axis=1).tolist()
         predprob = F.softmax(logits, dim=1).data.cpu().numpy().tolist()
         
-        return loss.data, acc, predictions, label.data.cpu().numpy().tolist(), predprob, g_outputs.data.cpu().numpy()
+        return loss.data, [neg_loss, neu_loss, pos_loss], acc, predictions, label.data.cpu().numpy().tolist(), predprob, g_outputs.data.cpu().numpy()
 
     def show_error(self, batch, vocab=None):
         # convert to cuda
@@ -88,7 +99,7 @@ class ABSATrainer(object):
 
         # forward
         self.model.eval()
-        logits, g_outputs = self.model(inputs)
+        logits, g_outputs, _ = self.model(inputs)
         loss = F.cross_entropy(logits, label, reduction='mean')
         corrects = (torch.max(logits, 1)[1].view(label.size()).data == label.data).sum()
         # wrongs = (torch.max(logits, 1)[1].view(label.size()).data != label.data)

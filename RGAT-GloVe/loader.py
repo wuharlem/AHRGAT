@@ -37,6 +37,38 @@ class ABSADataLoader(object):
         self.data = data
         print("{} batches created for {}".format(len(data), filename))
 
+    def get_win(self, mask, k):
+        """
+        calculate win using mask
+        mask: [0, 0, 0, 1, 1, 0, 0]
+        """
+        ast_len = sum(mask)
+        idx = mask.index(1)
+        win = [0 for i in mask]
+        lowerbound = idx-k if idx-k > 0 else 0
+        upperbound = idx+ast_len+k if idx+ast_len+k < len(mask) else len(mask)
+        for i in range(int(lowerbound), int(upperbound)):
+            if i >= idx-k:
+                win[i]=1
+        return win
+
+    def con_2_cat(sef, score):
+        TFIDF_FLAG = 1
+        if -0.00298<score and score <= 0.199:
+            return 0
+        if 0.199<score and score <= 0.397:
+            return TFIDF_FLAG+1
+        if 0.397<score and score <= 0.596:
+            return TFIDF_FLAG+2
+        if 0.596<score and score <= 0.795:
+            return TFIDF_FLAG+3
+        if 0.795<score and score <=  0.994:
+            return TFIDF_FLAG+4
+        if 0.994<score and score <= 1.192:
+            return TFIDF_FLAG+5
+        if 1.192<score:
+            return TFIDF_FLAG+6
+
     def preprocess(self, data, vocab, args):
         # unpack vocab
         token_vocab, post_vocab, pos_vocab, dep_vocab, pol_vocab = vocab
@@ -76,6 +108,11 @@ class ABSADataLoader(object):
                         + [1 for _ in range(aspect["from"], aspect["to"])]
                         + [0 for _ in range(aspect["to"], length)]
                     )
+                # win
+                win = self.get_win(mask, 3)
+                # tfidf
+                tfidf = list(d["tfidf"])
+                tfidf_flag = [self.con_2_cat(i) for i in list(d["tfidf"])]
 
                 # mapping token
                 # print('tok', tok)
@@ -104,9 +141,12 @@ class ABSADataLoader(object):
                     and len(deprel) == length
                     and len(post) == length
                     and len(mask) == length
+                    and len(win) == length
+                    and len(tfidf) == length
+                    and len(tfidf_flag) == length
                 )
 
-                processed += [(tok, asp, pos, head, deprel, post, mask, length, label)]
+                processed += [(tok, asp, pos, head, deprel, post, mask, win, tfidf, tfidf_flag, length, label)]
 
         return processed
 
@@ -145,12 +185,18 @@ class ABSADataLoader(object):
         post = get_long_tensor(batch[5], batch_size)
         # mask
         mask = get_float_tensor(batch[6], batch_size)
+        # win
+        win  = get_long_tensor(batch[7], batch_size)
+        # tfidf
+        tfidf = get_float_tensor(batch[8], batch_size)
+        # tfidf
+        tfidf_flag = get_long_tensor(batch[9], batch_size)
         # length
-        length = torch.LongTensor(batch[7])
+        length = torch.LongTensor(batch[10])
         # label
-        label = torch.LongTensor(batch[8])
+        label = torch.LongTensor(batch[11])
 
-        return (tok, asp, pos, head, deprel, post, mask, length, label)
+        return (tok, asp, pos, head, deprel, post, mask, win, tfidf, tfidf_flag, length, label)
 
     def __iter__(self):
         for i in range(self.__len__()):
