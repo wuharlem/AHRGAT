@@ -1,6 +1,6 @@
-# Investigating Typed Syntactic Dependencies for Targeted Sentiment Classification Using Graph Attention Neural Network
+# Aspect-Specific Heterogeneous Relational Graph Attention Neural Networks for Aspect-Based Sentiment Analysis
 
-This repository contains the code for the paper "[Investigating Typed Syntactic Dependencies for Targeted Sentiment Classification Using Graph Attention Neural Network](https://arxiv.org/abs/2002.09685)", IEEE/ACM Transactions on Audio, Speech, and Language Processing (TASLP)
+This repository contains the code from the paper "[Investigating Typed Syntactic Dependencies for Targeted Sentiment Classification Using Graph Attention Neural Network](https://arxiv.org/abs/2002.09685)", IEEE/ACM Transactions on Audio, Speech, and Language Processing (TASLP)
 
 ## Setup
 
